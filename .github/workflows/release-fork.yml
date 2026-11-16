@@ -1,0 +1,108 @@
+name: Release (ProngsFaints.JsxCore)
+
+# Publishes this fork as ProngsFaints.JsxCore on every push to the fork branch. A separate file from
+# release.yml so syncing with upstream never conflicts; release.yml only reacts to a published
+# GitHub release, so the two never run together.
+#
+# Publishes with nuget.org Trusted Publishing as the nuget.org user prongs-faints, so no secret is
+# stored. It needs:
+#   - a Trusted Publishing policy on nuget.org: owner prongs-faints, repository JsxCore, workflow
+#     file release-fork.yml, no environment
+# JsxCore.Npm is not published: the fork does not change it or JsxCore.PackageManagement, so the
+# upstream tool works unchanged.
+on:
+  push:
+    branches: [feature/fork]
+    paths-ignore:
+      - 'docs/**'
+      - 'images/**'
+      - '**/*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.editorconfig'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two quick pushes must not race each other to NuGet.
+concurrency:
+  group: release-fork
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PACKAGE_ID: ProngsFaints.JsxCore
+  FORK_URL: https://github.com/prongs-faints/JsxCore
+  # The upstream release this fork is built on. Bump it after merging a newer upstream release.
+  UPSTREAM_VERSION: 1.0.4
+
+jobs:
+  publish:
+    name: Publish to NuGet
+    runs-on: ubuntu-latest
+
+    # id-token lets the job request the OIDC token that nuget.org exchanges for a temporary key.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Upstream version plus the run number, e.g. 1.0.4.12: unique per push, so --skip-duplicate
+      # only ever skips a re-run of the same push rather than silently dropping a new build.
+      - name: Work out the version
+        id: version
+        run: echo "value=$UPSTREAM_VERSION.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: dotnet test test/JsxCore.Tests --configuration Release
+
+      - name: Pack
+        run: >
+          dotnet pack src/JsxCore --configuration Release --output artifacts
+          -p:JsxCorePackageId=$PACKAGE_ID
+          -p:Version=${{ steps.version.outputs.value }}
+          -p:PackageProjectUrl=$FORK_URL
+          -p:RepositoryUrl=$FORK_URL
+          -p:ContinuousIntegrationBuild=true
+
+      # The failure a successful pack would not show: a renamed package whose targets NuGet does
+      # not import builds fine and simply never compiles a view.
+      - name: Check a consuming project compiles its views
+        run: |
+          consumer="$RUNNER_TEMP/consumer"
+          dotnet new web -o "$consumer"
+          dotnet add "$consumer" package $PACKAGE_ID --source "$PWD/artifacts" --version ${{ steps.version.outputs.value }}
+          mkdir -p "$consumer/Views/Home"
+          echo 'export default function Index() { return <h1>Hello</h1>; }' > "$consumer/Views/Home/Index.tsx"
+          dotnet build "$consumer"
+          test -f "$consumer/obj/JsxCore/js/Home/Index.js"
+
+      # Requested immediately before the push: the key it returns expires after an hour.
+      - name: Log in to NuGet
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: prongs-faints
+
+      - name: Push to NuGet
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --skip-duplicate

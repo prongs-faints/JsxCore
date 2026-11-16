@@ -17,7 +17,13 @@
 
   <!-- Identity shared with JsxCore.Npm is in src/Directory.Build.props. -->
   <PropertyGroup Label="Package">
-    <PackageId>JsxCore</PackageId>
+    <!--
+      Overridable so a fork can publish under its own ID without touching the assembly name or
+      namespaces. A dedicated property rather than -p:PackageId, because a global PackageId would
+      also rename every project this one references.
+    -->
+    <JsxCorePackageId Condition="'$(JsxCorePackageId)' == ''">JsxCore</JsxCorePackageId>
+    <PackageId>$(JsxCorePackageId)</PackageId>
     <Title>JsxCore: a TSX/JSX view engine for ASP.NET Core</Title>
     <Description>A TSX/JSX view engine for ASP.NET Core. Write views as .tsx or .jsx files and return them from controllers or minimal APIs. Compiled by the native TypeScript compiler and served as native ES modules with no bundler, rendered on the client, on the server, or both. Includes synchronous .NET interop from server-rendered views, TypeScript types generated from your .NET models, and hot reload in development.</Description>
     <PackageTags>aspnetcore;mvc;view-engine;tsx;jsx;typescript;preact;ssr;hydration;hmr;esm</PackageTags>
@@ -49,7 +55,8 @@
     so the two can never drift.
   -->
   <ItemGroup Label="Build-time compilation">
-    <None Include="build\JsxCore.targets" Pack="true" PackagePath="buildTransitive\JsxCore.targets" />
+    <!-- NuGet only imports buildTransitive/{PackageId}.targets, so the name follows the ID. -->
+    <None Include="build\JsxCore.targets" Pack="true" PackagePath="buildTransitive\$(PackageId).targets" />
     <None Include="Assets\tsconfig.base.json" Pack="true" PackagePath="buildTransitive\tsconfig.base.json" />
     <None Include="Assets\runtime\*.d.ts" Pack="true" PackagePath="buildTransitive/runtime/" />
     <None Include="Assets\runtime\package.json" Pack="true" PackagePath="buildTransitive/runtime/" />
