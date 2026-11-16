@@ -22,6 +22,10 @@ promise anything about.
   module on the server and in the browser, and the document links the stylesheets the view's
   packages bring with them, ahead of the view's own.
 - Minified imports without a space (`import"./a.js"`) are found and rewritten.
+- A server render that ran out of its timeout, or was aborted, no longer leaves its pooled engine
+  behind half-initialised. That engine used to fail every later render of the views importing the
+  interrupted module with "Cannot access ... before initialization"; a failed render now discards
+  its engine.
 - Minification no longer hands stylesheets to the JavaScript minifier, where one stylesheet made the
   whole graph ship unminified.
 

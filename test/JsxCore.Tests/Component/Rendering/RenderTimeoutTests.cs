@@ -80,6 +80,43 @@ public class RenderTimeoutTests
         elapsed.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(15));
     }
 
+    /// <summary>
+    /// A module that is slow to evaluate, as a large component library is on a cold engine, so a
+    /// tight budget runs out while it is still initialising.
+    /// </summary>
+    private const string SlowModule = """
+        const start = Date.now();
+        while (Date.now() - start < 1000) { }
+        export const label = "ready";
+        """;
+
+    [Fact]
+    public async Task Render_PreviousRenderTimedOutMidModuleEvaluation_RendersOnAFreshEngine()
+    {
+        using var project = JsxProjectFixture.Create();
+        project.Options.TypeChecking = TypeCheckingMode.Off;
+        project.Options.ServerRendering.MaxPooledEngines = 1;
+        project.Options.ServerRendering.Timeout = TimeSpan.FromMilliseconds(200);
+        project.AddView("Home/slow.ts", SlowModule);
+        project.AddView("Home/Uses.tsx", """
+            import { label } from "./slow.ts";
+            export default function Uses() { return <p>{label}</p>; }
+            """);
+        await project.CompileAsync();
+
+        var renderer = project.CreateServerRenderer();
+        var services = new ServiceCollection().BuildServiceProvider();
+        var view = project.Locate("Home/Uses");
+        await Should.ThrowAsync<JsxRenderException>(() =>
+            renderer.RenderAsync(view, null, new Dictionary<string, object?>(), services));
+
+        // An engine whose module graph was abandoned half-evaluated must not serve the next request.
+        project.Options.ServerRendering.Timeout = TimeSpan.FromSeconds(30);
+        var result = await renderer.RenderAsync(view, null, new Dictionary<string, object?>(), services);
+
+        result.Html.ShouldBe("<p>ready</p>");
+    }
+
     /// <summary>A component that returns immediately, so nothing but a broken budget can stop it.</summary>
     private const string Fast = """
         export default function Fast() { return <p>ok</p>; }
