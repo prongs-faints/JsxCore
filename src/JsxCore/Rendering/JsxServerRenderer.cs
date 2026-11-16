@@ -139,15 +139,30 @@ public sealed class JsxServerRenderer(
             // a request whose scope has ended.
             pooled.Globals.Services = services;
             pooled.Deadline.Begin(_options.ServerRendering.Timeout, cancellationToken);
+            var rendered = false;
             try
             {
-                return Render(pooled.Engine, view, modelJson, contextJson, entryPoint);
+                var result = Render(pooled.Engine, view, modelJson, contextJson, entryPoint);
+                rendered = true;
+                return result;
             }
             finally
             {
                 pooled.Deadline.End();
                 pooled.Globals.Services = null;
-                Return(pooled);
+
+                // A render ended by its budget or an abort can stop mid-way through evaluating a
+                // module, which the engine then keeps half-initialised for good: every later render
+                // on it fails with "Cannot access ... before initialization". Failures are rare
+                // enough that starting the next render on a fresh engine costs nothing that matters.
+                if (rendered)
+                {
+                    Return(pooled);
+                }
+                else
+                {
+                    Discard(pooled);
+                }
             }
         }
         finally
