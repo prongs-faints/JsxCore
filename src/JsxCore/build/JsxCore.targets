@@ -623,6 +623,16 @@
           StandardOutputImportance="low" />
   </Target>
 
+  <Target Name="JsxCoreRestoreReactRuntime"
+          AfterTargets="JsxCoreCompileViews"
+          Condition="'$(JsxCoreCompileOnBuild)' == 'true' And '$(JsxCoreFramework)' == 'react'
+                     And Exists('$(MSBuildProjectDirectory)/$(JsxCoreViewsDirectory)')
+                     And (!Exists('$(_JsxCoreWorkingArg)/react/server.js')
+                          Or !Exists('$(_JsxCoreWorkingArg)/react/client.js')
+                          Or !Exists('$(_JsxCoreWorkingArg)/react/view-host.js'))">
+    <CallTarget Targets="JsxCoreWriteConfig" />
+  </Target>
+
   <!--
     Carry the compiled views into the publish output, along with the Preact ES modules if they are
     installed.

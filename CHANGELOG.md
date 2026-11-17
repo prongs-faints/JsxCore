@@ -17,6 +17,8 @@ promise anything about.
 
 ### Fixed
 
+- React builds stage the server and client entry modules in a clean working directory and restore
+  missing entries on incremental builds.
 - A package that imports CSS from its own JavaScript (`import "./Button.css"`, as libraries built
   with `vite-plugin-lib-inject-css` do) no longer fails server rendering. The import is an empty
   module on the server and in the browser, and the document links the stylesheets the view's

@@ -47,6 +47,9 @@ the package ships under `tools/`, which the target invokes. One consequence is w
 **the build-time and run-time compiler settings are produced by the same code**, so they cannot
 drift apart. `JsxCoreToolPath` relocates the tool; `JSX0006` reports it missing.
 
+For React, the build also stages JsxCore's server and client entry modules under the working
+directory. If an entry is removed, the next incremental build restores it.
+
 ### The build installs its own dependencies
 
 A clean checkout needs no npm step of its own, so a pipeline is just:

@@ -50,6 +50,11 @@ public static class TsConfigCommand
         // beside the configuration that points at them.
         RuntimeAssets.ExtractTypeDefinitions(layout.RuntimeDirectory);
 
+        if (framework == JsFramework.React)
+        {
+            new ReactEntryStager(layout).Stage();
+        }
+
         return 0;
     }
 }

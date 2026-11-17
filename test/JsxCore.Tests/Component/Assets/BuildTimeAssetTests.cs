@@ -17,6 +17,24 @@ namespace JsxCore.Tests.Component.Assets;
 /// </remarks>
 public class BuildTimeAssetTests
 {
+    [Fact]
+    public void BuildConfiguration_React_StagesServerAndSharedEntries()
+    {
+        using var project = JsxProjectFixture.Create(JsFramework.React);
+
+        var exit = TsConfigCommand.Run(Arguments.Parse([
+            "--project-dir", project.Root,
+            "--views", project.ViewsDirectory,
+            "--working", project.Options.WorkingDirectory,
+            "--framework", "react"
+        ]));
+
+        exit.ShouldBe(0);
+        File.Exists(Path.Combine(project.Layout.WorkingDirectory, "react", "server.js")).ShouldBeTrue();
+        File.Exists(Path.Combine(project.Layout.WorkingDirectory, "react", "client.js")).ShouldBeTrue();
+        File.Exists(Path.Combine(project.Layout.WorkingDirectory, "react", "view-host.js")).ShouldBeTrue();
+    }
+
     /// <summary>
     /// Writes the module the compiler would have emitted, rather than compiling.
     /// </summary>
