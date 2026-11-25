@@ -140,6 +140,60 @@ public class HeadComponentTests
     }
 
     [Fact]
+    public async Task Head_WritesReactPropNamesAsHtmlAttributes()
+    {
+        // A browser ignores httpEquiv="refresh", so a page meant to work without JavaScript would
+        // never redirect. The values must still be escaped.
+        using var project = Project("""
+            "use server";
+            import Head from "dotnet:rendering/head";
+            export default function Index() {
+                return (
+                    <Head>
+                        <meta charSet="utf-8" />
+                        <meta httpEquiv="refresh" content={'0;url=/next?a=1&b="<x>"'} />
+                        <link rel="alternate" hrefLang="en" href="/en" crossOrigin="anonymous" />
+                    </Head>
+                );
+            }
+            """);
+
+        await using var host = await JsxTestHost.StartAsync(project);
+        var html = await host.GetStringAsync("/hybrid/Index");
+        var head = html[..html.IndexOf("</head>", StringComparison.Ordinal)];
+
+        head.ShouldContain("""<meta http-equiv="refresh" content="0;url=/next?a=1&amp;b=&quot;&lt;x&gt;&quot;" """.TrimEnd());
+        head.ShouldContain("""<meta charset="utf-8" data-jsxcore-head=""");
+        head.ShouldContain("""hreflang="en" """.TrimEnd());
+        head.ShouldContain("""crossorigin="anonymous" """.TrimEnd());
+        head.ShouldNotContain("httpEquiv", Case.Sensitive);
+        head.ShouldNotContain("charSet", Case.Sensitive);
+        head.ShouldNotContain("hrefLang", Case.Sensitive);
+        head.ShouldNotContain("crossOrigin", Case.Sensitive);
+    }
+
+    [Fact]
+    public async Task Head_DropsAttributesNoBrowserCouldAccept()
+    {
+        // The client's setAttribute would throw on these, so the server must not write them either.
+        using var project = Project("""
+            "use server";
+            import Head from "dotnet:rendering/head";
+            export default function Index() {
+                const props = { name: "robots", content: "noindex", 'bad"name': "x", onLoad: () => 1 };
+                return <Head><meta {...(props as any)} /></Head>;
+            }
+            """);
+
+        await using var host = await JsxTestHost.StartAsync(project);
+        var head = (await host.GetStringAsync("/hybrid/Index")).Split("</head>")[0];
+
+        head.ShouldContain("""<meta name="robots" content="noindex" """.TrimEnd());
+        head.ShouldNotContain("bad");
+        head.ShouldNotContain("onLoad");
+    }
+
+    [Fact]
     public async Task Head_MarksWhatItEmitted_SoAHydratingClientCanReconcile()
     {
         using var project = Project("""

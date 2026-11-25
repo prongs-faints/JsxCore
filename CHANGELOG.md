@@ -17,6 +17,11 @@ promise anything about.
 
 ### Fixed
 
+- `<Head>` writes React prop names as the HTML attributes browsers read (`httpEquiv` →
+  `http-equiv`, `charSet` → `charset`, `hrefLang`, `crossOrigin`, …), on the server and in the
+  browser alike. A `<meta httpEquiv="refresh">` used to be ignored, so a page meant to work without
+  JavaScript never redirected. Function props and invalid attribute names are dropped instead of
+  being written (or making the browser's `setAttribute` throw).
 - React builds stage the server and client entry modules in a clean working directory and restore
   missing entries on incremental builds.
 - A package that imports CSS from its own JavaScript (`import "./Button.css"`, as libraries built

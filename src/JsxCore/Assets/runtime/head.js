@@ -36,17 +36,44 @@ function textOf(children) {
     return String(children);
 }
 
+// React/Preact prop names that differ from the HTML attribute a browser reads, for the tags this
+// emits. Anything else is written as given, so `http-equiv` or `charset` spelled the HTML way work too.
+const HTML_NAMES = {
+    acceptCharset: "accept-charset",
+    charSet: "charset",
+    className: "class",
+    crossOrigin: "crossorigin",
+    fetchPriority: "fetchpriority",
+    hrefLang: "hreflang",
+    htmlFor: "for",
+    httpEquiv: "http-equiv",
+    imageSizes: "imagesizes",
+    imageSrcSet: "imagesrcset",
+    itemProp: "itemprop",
+    noModule: "nomodule",
+    referrerPolicy: "referrerpolicy"
+};
+
+// Characters no HTML attribute name may contain; setAttribute throws on them in the browser.
+const INVALID_NAME = /[\s\\/='"\0<>]/;
+
 /** Attributes of a vnode, as the flat string bag a HeadDescriptor carries. */
 function attributesOf(node) {
     const attributes = {};
 
-    for (const name in node.props) {
-        if (name === "children" || name === "key" || name === "ref") {
+    for (const prop in node.props) {
+        if (prop === "children" || prop === "key" || prop === "ref" || INVALID_NAME.test(prop)) {
             continue;
         }
 
-        const value = node.props[name];
-        if (value === null || value === undefined || value === false) {
+        const name = HTML_NAMES[prop] || prop;
+        // The HTML spelling wins when both are given, whichever comes first.
+        if (name !== prop && name in node.props) {
+            continue;
+        }
+
+        const value = node.props[prop];
+        if (value === null || value === undefined || value === false || typeof value === "function") {
             continue;
         }
 

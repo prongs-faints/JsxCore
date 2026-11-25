@@ -150,6 +150,11 @@ export default function Products({ model }: ViewProps<ProductsModel>) {
 It renders nothing where it sits. `title`, `meta`, `link` and `script` children are lifted into the
 document head; anything else is ignored.
 
+Attributes are written the way the browser reads them on both server and client:
+`<meta httpEquiv="refresh" … />` becomes `http-equiv`, `charSet` becomes `charset`, and so on, so a
+meta refresh works with JavaScript disabled. Event handlers and names that can't be valid HTML
+attributes are dropped.
+
 The reason to reach for it over the export is that **any component can use it**, not just the view.
 A card deep in the tree can contribute a meta tag without the view knowing it exists, which a `head`
 export cannot express because it is evaluated before the tree is built.
